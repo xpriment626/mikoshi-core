@@ -2,6 +2,7 @@
   "name": "mikoshi-suite",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "bun@1.1.0",
   "description": "No-code testing and validation platform for multi-agent AI systems",
   "workspaces": [
     "packages/*",
