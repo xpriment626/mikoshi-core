@@ -27,30 +27,30 @@ This document outlines the comprehensive development plan for Mikoshi, a no-code
 3. **No Plugin System**: Format parsers are hardcoded instead of extensible
 4. **Type Safety Gaps**: Chaos parameters lack proper type safety
 
-**Revised Day 3-4 Tasks:**
+**Revised Day 3-4 Tasks:** ✅
 
-- **Fix Deterministic Randomness** (CRITICAL PRIORITY)
-  - Implement SeededRandom class using LCG algorithm
-  - Update ConversationFactory to use SeededRandom
-  - Add statistical tests to verify determinism
-  - Ensure all random operations are reproducible
-- **Define Core Architecture**
-  - Create engine interfaces (ReplayEngine, ChaosInjector, InvariantValidator)
-  - Establish event sourcing pattern for conversation replay
-  - Design streaming support for large conversations
-  - Define plugin architecture for format parsers
-- **Implement Parser Registry**
-  - Create extensible parser plugin system
-  - Implement at least 2 format parsers (AutoGen, LangChain)
-  - Add format auto-detection logic
-  - Include validation and error handling
-- **Add Property-Based Testing**
-  - Properly integrate fast-check library
-  - Create property tests for core components
-  - Generate edge cases automatically
-  - Validate chaos distribution properties
+- ~~**Fix Deterministic Randomness** (CRITICAL PRIORITY)~~
+  - ~~Implement SeededRandom class using LCG algorithm~~
+  - ~~Update ConversationFactory to use SeededRandom~~
+  - ~~Add statistical tests to verify determinism~~
+  - ~~Ensure all random operations are reproducible~~
+- ~~**Define Core Architecture**~~
+  - ~~Create engine interfaces (ReplayEngine, ChaosInjector, InvariantValidator)~~
+  - ~~Establish event sourcing pattern for conversation replay~~
+  - ~~Design streaming support for large conversations~~
+  - ~~Define plugin architecture for format parsers~~
+- ~~**Implement Parser Registry**~~
+  - ~~Create extensible parser plugin system~~
+  - ~~Implement at least 2 format parsers (AutoGen, LangChain)~~
+  - ~~Add format auto-detection logic~~
+  - ~~Include validation and error handling~~
+- ~~**Add Property-Based Testing**~~
+  - ~~Properly integrate fast-check library~~
+  - ~~Create property tests for core components~~
+  - ~~Generate edge cases automatically~~
+  - ~~Validate chaos distribution properties~~
 
-**Quality Gates Before Day 5:**
+**Quality Gates Before Day 5:** ✅
 
 - ✅ SeededRandom working with statistical tests
 - ✅ Core interfaces defined and reviewed
