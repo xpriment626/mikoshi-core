@@ -114,6 +114,27 @@ export class SeededRandom {
       throw new Error(`Sample size must be non-negative, got ${n}`);
     }
 
+    if (n === 0) {
+      return [];
+    }
+
+    // For small sample sizes relative to array, use selection sampling
+    if (n <= array.length / 2) {
+      const selected = new Set<number>();
+      const result: T[] = [];
+
+      while (selected.size < n) {
+        const index = this.nextInt(0, array.length - 1);
+        if (!selected.has(index)) {
+          selected.add(index);
+          result.push(array[index]);
+        }
+      }
+
+      return result;
+    }
+
+    // For large sample sizes, shuffle and slice
     const shuffled = this.shuffle([...array]);
     return shuffled.slice(0, n);
   }
