@@ -1,6 +1,18 @@
-# Mikoshi Suite
+# 🧪 Mikoshi
 
-A no-code testing and validation platform for multi-agent AI systems.
+Hey, you're here early! Welcome to the construction site of Mikoshi - the testing platform that puts your AI agents through digital purgatory so they don't break in production.
+
+## What's Mikoshi?
+
+Think Postman for AI agents - but instead of just testing if they work, we actively try to break them (professionally).
+Your multi-agent AI system might work perfectly in development, but what happens when:
+
+- 🌊 Messages arrive out of order?
+- 💀 An agent times out mid-conversation?
+- 🔀 Network issues cause 30% packet loss?
+- 🧨 Payloads get corrupted in transit?
+
+Mikoshi lets you replay agent conversations under chaos conditions to find these bugs before your customers do.
 
 ## Project Structure
 
