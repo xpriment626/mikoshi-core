@@ -4,7 +4,6 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ConversationFactory } from './conversation-factory';
-import type { Conversation } from '@mikoshi/types';
 
 describe('ConversationFactory', () => {
   let factory: ConversationFactory;
@@ -52,7 +51,7 @@ describe('ConversationFactory', () => {
 
       for (let i = 1; i < conversation.messages.length; i++) {
         expect(conversation.messages[i].timestamp).toBeGreaterThanOrEqual(
-          conversation.messages[i - 1].timestamp
+          conversation.messages[i - 1].timestamp,
         );
       }
     });
@@ -64,7 +63,7 @@ describe('ConversationFactory', () => {
         baseTimestamp: 1000,
       });
 
-      const timestamps = conversation.messages.map(m => m.timestamp);
+      const timestamps = conversation.messages.map((m) => m.timestamp);
       expect(new Set(timestamps).size).toBe(1);
       expect(timestamps[0]).toBe(1000);
     });
@@ -75,7 +74,7 @@ describe('ConversationFactory', () => {
       });
 
       expect(conversation.metadata).toBeDefined();
-      conversation.messages.forEach(message => {
+      conversation.messages.forEach((message) => {
         expect(message.metadata).toBeDefined();
       });
     });
@@ -86,7 +85,7 @@ describe('ConversationFactory', () => {
       });
 
       expect(conversation.metadata).toBeUndefined();
-      conversation.messages.forEach(message => {
+      conversation.messages.forEach((message) => {
         expect(message.metadata).toBeUndefined();
       });
     });
@@ -108,9 +107,7 @@ describe('ConversationFactory', () => {
       // Check that there's an excessive delay
       const delays = [];
       for (let i = 1; i < conversation.messages.length; i++) {
-        delays.push(
-          conversation.messages[i].timestamp - conversation.messages[i - 1].timestamp
-        );
+        delays.push(conversation.messages[i].timestamp - conversation.messages[i - 1].timestamp);
       }
       expect(Math.max(...delays)).toBeGreaterThan(9000); // At least one 10s+ delay
     });
@@ -119,11 +116,14 @@ describe('ConversationFactory', () => {
       const conversation = factory.createConversationWithViolation('content');
 
       expect(conversation).toBeDefined();
-      // Check that SSN is injected
-      const hasSSN = conversation.messages.some(msg =>
-        msg.content.includes('SSN: 123-45-6789')
+      // Check that PII is injected (could be SSN, CC, or DOB)
+      const hasPII = conversation.messages.some(
+        (msg) =>
+          msg.content.includes('SSN: 123-45-6789') ||
+          msg.content.includes('CC: 4111-1111-1111-1111') ||
+          msg.content.includes('DOB: 01/01/1990'),
       );
-      expect(hasSSN).toBe(true);
+      expect(hasPII).toBe(true);
     });
 
     it('should create conversation with state violation', () => {
@@ -131,7 +131,7 @@ describe('ConversationFactory', () => {
 
       expect(conversation).toBeDefined();
       // Check for inconsistent state metadata
-      const states = conversation.messages.map(msg => msg.metadata?.state);
+      const states = conversation.messages.map((msg) => msg.metadata?.state);
       expect(states.includes('active')).toBe(true);
       expect(states.includes('inactive')).toBe(true);
     });
@@ -142,7 +142,7 @@ describe('ConversationFactory', () => {
       const agents = factory.createAgents(4);
 
       expect(agents).toHaveLength(4);
-      agents.forEach(agent => {
+      agents.forEach((agent) => {
         expect(agent.id).toBeTruthy();
         expect(agent.name).toBeTruthy();
         expect(agent.type).toBeTruthy();
@@ -153,14 +153,14 @@ describe('ConversationFactory', () => {
     it('should assign different types to agents', () => {
       const agents = factory.createAgents(8);
 
-      const types = new Set(agents.map(a => a.type));
+      const types = new Set(agents.map((a) => a.type));
       expect(types.size).toBeGreaterThan(1);
     });
 
     it('should include metadata for agents', () => {
       const agents = factory.createAgents(2);
 
-      agents.forEach(agent => {
+      agents.forEach((agent) => {
         expect(agent.metadata).toBeDefined();
         expect(agent.metadata?.version).toBe('1.0.0');
         expect(agent.metadata?.framework).toBeTruthy();
@@ -180,8 +180,8 @@ describe('ConversationFactory', () => {
       });
 
       expect(messages).toHaveLength(6);
-      messages.forEach(message => {
-        expect(agents.map(a => a.id)).toContain(message.agentId);
+      messages.forEach((message) => {
+        expect(agents.map((a) => a.id)).toContain(message.agentId);
       });
     });
 
@@ -232,7 +232,7 @@ describe('ConversationFactory', () => {
       expect(state.activeAgents).toBeInstanceOf(Array);
       expect(state.messageCount).toBe(15);
       expect(state.lastMessageTime).toBe(
-        conversation.messages[conversation.messages.length - 1].timestamp
+        conversation.messages[conversation.messages.length - 1].timestamp,
       );
       expect(state.variables).toBeDefined();
     });
@@ -245,9 +245,7 @@ describe('ConversationFactory', () => {
       const state = factory.createConversationState(conversation);
 
       // Active agents should be from last 10 messages
-      const lastTenAgents = new Set(
-        conversation.messages.slice(-10).map(m => m.agentId)
-      );
+      const lastTenAgents = new Set(conversation.messages.slice(-10).map((m) => m.agentId));
       expect(state.activeAgents.length).toBe(lastTenAgents.size);
     });
   });
@@ -260,16 +258,124 @@ describe('ConversationFactory', () => {
       const conv1 = factory1.createConversation({
         agentCount: 3,
         messageCount: 5,
+        baseTimestamp: 1000000,
+        simulateDelays: true,
+        includeMetadata: true,
       });
       const conv2 = factory2.createConversation({
         agentCount: 3,
         messageCount: 5,
+        baseTimestamp: 1000000,
+        simulateDelays: true,
+        includeMetadata: true,
       });
 
-      // Compare structure (not IDs as they include timestamps)
+      // Compare structure
       expect(conv1.agents.length).toBe(conv2.agents.length);
       expect(conv1.messages.length).toBe(conv2.messages.length);
       expect(conv1.format).toBe(conv2.format);
+
+      // Compare agent properties (except IDs which include timestamps)
+      for (let i = 0; i < conv1.agents.length; i++) {
+        expect(conv1.agents[i].name).toBe(conv2.agents[i].name);
+        expect(conv1.agents[i].type).toBe(conv2.agents[i].type);
+        expect(conv1.agents[i].capabilities).toEqual(conv2.agents[i].capabilities);
+        expect(conv1.agents[i].metadata).toEqual(conv2.agents[i].metadata);
+      }
+
+      // Compare message content and structure
+      for (let i = 0; i < conv1.messages.length; i++) {
+        expect(conv1.messages[i].content).toBe(conv2.messages[i].content);
+        expect(conv1.messages[i].role).toBe(conv2.messages[i].role);
+        expect(conv1.messages[i].timestamp).toBe(conv2.messages[i].timestamp);
+        // Metadata should be identical too
+        if (conv1.messages[i].metadata && conv2.messages[i].metadata) {
+          expect(conv1.messages[i].metadata?.processingTime).toBe(
+            conv2.messages[i].metadata?.processingTime,
+          );
+          expect(conv1.messages[i].metadata?.retryCount).toBe(
+            conv2.messages[i].metadata?.retryCount,
+          );
+          expect(conv1.messages[i].metadata?.confidence).toBe(
+            conv2.messages[i].metadata?.confidence,
+          );
+          expect(conv1.messages[i].metadata?.tokens).toBe(conv2.messages[i].metadata?.tokens);
+        }
+      }
+
+      // Compare metadata
+      expect(conv1.metadata?.environment).toBe(conv2.metadata?.environment);
+      expect(conv1.metadata?.region).toBe(conv2.metadata?.region);
+      expect(conv1.metadata?.tags).toEqual(conv2.metadata?.tags);
+    });
+
+    it('should produce different conversations with different seeds', () => {
+      const factory1 = new ConversationFactory(100);
+      const factory2 = new ConversationFactory(200);
+
+      const conv1 = factory1.createConversation({
+        agentCount: 3,
+        messageCount: 5,
+        baseTimestamp: 1000000,
+      });
+      const conv2 = factory2.createConversation({
+        agentCount: 3,
+        messageCount: 5,
+        baseTimestamp: 1000000,
+      });
+
+      // Messages should have different content
+      let differentMessages = 0;
+      for (let i = 0; i < conv1.messages.length; i++) {
+        if (conv1.messages[i].content !== conv2.messages[i].content) {
+          differentMessages++;
+        }
+      }
+      expect(differentMessages).toBeGreaterThan(0);
+    });
+
+    it('should be reproducible across multiple runs', () => {
+      const seed = 42;
+      const results: string[] = [];
+
+      for (let run = 0; run < 5; run++) {
+        const factory = new ConversationFactory(seed);
+        const conv = factory.createConversation({
+          agentCount: 2,
+          messageCount: 3,
+          baseTimestamp: 1000000,
+        });
+
+        // Create a fingerprint of the conversation
+        const fingerprint = conv.messages
+          .map((m) => `${m.content}|${m.timestamp}|${m.role}`)
+          .join('::');
+        results.push(fingerprint);
+      }
+
+      // All runs should produce identical fingerprints
+      expect(new Set(results).size).toBe(1);
+    });
+
+    it('should handle reset with new seed', () => {
+      const factory = new ConversationFactory(100);
+
+      const conv1 = factory.createConversation({
+        messageCount: 3,
+        baseTimestamp: 1000000,
+      });
+
+      factory.reset(100); // Reset to same seed
+
+      const conv2 = factory.createConversation({
+        messageCount: 3,
+        baseTimestamp: 1000000,
+      });
+
+      // Should produce identical content
+      for (let i = 0; i < conv1.messages.length; i++) {
+        expect(conv1.messages[i].content).toBe(conv2.messages[i].content);
+      }
     });
   });
 });

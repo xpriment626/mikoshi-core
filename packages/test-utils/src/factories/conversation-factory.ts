@@ -2,13 +2,14 @@
  * Factory for generating synthetic conversation test data
  */
 
-import type { 
-  Conversation, 
-  Message, 
-  Agent, 
+import type {
+  Conversation,
+  Message,
+  Agent,
   ConversationFormat,
-  ConversationState 
+  ConversationState,
 } from '@mikoshi/types';
+import { SeededRandom, type RandomGenerator } from '@mikoshi/shared';
 
 export interface ConversationFactoryOptions {
   format?: ConversationFormat;
@@ -22,10 +23,10 @@ export interface ConversationFactoryOptions {
 
 export class ConversationFactory {
   private static idCounter = 0;
-  private seed: number;
+  private rng: RandomGenerator;
 
   constructor(seed: number = Date.now()) {
-    this.seed = seed;
+    this.rng = new SeededRandom(seed);
   }
 
   /**
@@ -66,10 +67,10 @@ export class ConversationFactory {
    */
   createConversationWithViolation(
     violationType: 'sequence' | 'timing' | 'content' | 'state',
-    options: ConversationFactoryOptions = {}
+    options: ConversationFactoryOptions = {},
   ): Conversation {
     const conversation = this.createConversation(options);
-    
+
     switch (violationType) {
       case 'sequence':
         this.injectSequenceViolation(conversation);
@@ -103,7 +104,7 @@ export class ConversationFactory {
         capabilities: this.generateCapabilities(),
         metadata: {
           version: '1.0.0',
-          framework: this.selectRandom(['autogen', 'langchain', 'crew']),
+          framework: this.rng.choice(['autogen', 'langchain', 'crew']),
         },
       });
     }
@@ -127,7 +128,7 @@ export class ConversationFactory {
 
     for (let i = 0; i < count; i++) {
       const agent = agents[i % agents.length];
-      const delay = simulateDelays ? this.randomInt(100, 2000) : 0;
+      const delay = simulateDelays ? this.rng.nextInt(100, 2000) : 0;
       currentTime += delay;
 
       messages.push({
@@ -135,7 +136,7 @@ export class ConversationFactory {
         agentId: agent.id,
         content: this.generateMessageContent(agent.type),
         timestamp: currentTime,
-        role: this.selectRandom(['user', 'assistant', 'system']),
+        role: this.rng.choice(['user', 'assistant', 'system'] as const),
         parentMessageId: i > 0 ? messages[i - 1].id : undefined,
         metadata: includeMetadata ? this.generateMessageMetadata() : undefined,
       });
@@ -161,49 +162,50 @@ export class ConversationFactory {
    * Create conversation state snapshot
    */
   createConversationState(conversation: Conversation): ConversationState {
-    const activeAgents = [...new Set(
-      conversation.messages
-        .slice(-10)
-        .map(m => m.agentId)
-    )];
+    const activeAgents = [...new Set(conversation.messages.slice(-10).map((m) => m.agentId))];
 
     return {
       activeAgents,
       messageCount: conversation.messages.length,
       lastMessageTime: conversation.messages[conversation.messages.length - 1]?.timestamp || 0,
       variables: {
-        topic: this.selectRandom(['planning', 'execution', 'validation', 'reporting']),
-        phase: this.selectRandom(['initial', 'processing', 'finalizing']),
-        priority: this.randomInt(1, 5),
+        topic: this.rng.choice(['planning', 'execution', 'validation', 'reporting']),
+        phase: this.rng.choice(['initial', 'processing', 'finalizing']),
+        priority: this.rng.nextInt(1, 5),
       },
     };
   }
 
   // Helper methods
-  
+
   private injectSequenceViolation(conversation: Conversation): void {
     // Swap two messages to create out-of-order sequence
     if (conversation.messages.length >= 2) {
-      const idx1 = Math.floor(conversation.messages.length / 3);
-      const idx2 = idx1 + 1;
-      [conversation.messages[idx1], conversation.messages[idx2]] = 
-        [conversation.messages[idx2], conversation.messages[idx1]];
+      const idx1 = this.rng.nextInt(0, Math.floor(conversation.messages.length / 2));
+      const idx2 = idx1 + this.rng.nextInt(1, Math.floor(conversation.messages.length / 2));
+      if (idx2 < conversation.messages.length) {
+        [conversation.messages[idx1], conversation.messages[idx2]] = [
+          conversation.messages[idx2],
+          conversation.messages[idx1],
+        ];
+      }
     }
   }
 
   private injectTimingViolation(conversation: Conversation): void {
     // Add excessive delay between messages
     if (conversation.messages.length >= 2) {
-      const idx = Math.floor(conversation.messages.length / 2);
-      conversation.messages[idx].timestamp += 10000; // Add 10 second delay
+      const idx = this.rng.nextInt(1, conversation.messages.length - 1);
+      conversation.messages[idx].timestamp += this.rng.nextInt(5000, 15000); // Add 5-15 second delay
     }
   }
 
   private injectContentViolation(conversation: Conversation): void {
     // Inject PII or forbidden content
     if (conversation.messages.length > 0) {
-      const idx = Math.floor(conversation.messages.length / 2);
-      conversation.messages[idx].content += ' SSN: 123-45-6789';
+      const idx = this.rng.nextInt(0, conversation.messages.length - 1);
+      const piiTypes = [' SSN: 123-45-6789', ' CC: 4111-1111-1111-1111', ' DOB: 01/01/1990'];
+      conversation.messages[idx].content += this.rng.choice(piiTypes);
     }
   }
 
@@ -233,12 +235,12 @@ export class ConversationFactory {
       'file-operations',
       'api-calls',
     ];
-    
-    const count = this.randomInt(2, 5);
-    return this.shuffle(allCapabilities).slice(0, count);
+
+    const count = this.rng.nextInt(2, 5);
+    return this.rng.shuffle([...allCapabilities]).slice(0, count);
   }
 
-  private generateMessageContent(agentType?: string): string {
+  private generateMessageContent(_agentType?: string): string {
     const templates = [
       'Processing request for {task}',
       'Analysis complete: {result}',
@@ -250,51 +252,48 @@ export class ConversationFactory {
       'Completed {task} successfully',
     ];
 
-    const template = this.selectRandom(templates);
+    const template = this.rng.choice(templates);
     return template
-      .replace('{task}', this.selectRandom(['data processing', 'validation', 'optimization']))
-      .replace('{result}', this.selectRandom(['success', 'partial', 'pending']))
-      .replace('{action}', this.selectRandom(['scan', 'analyze', 'transform']))
-      .replace('{target}', this.selectRandom(['dataset', 'model', 'pipeline']))
-      .replace('{status}', this.selectRandom(['running', 'completed', 'waiting']))
-      .replace('{error}', this.selectRandom(['timeout', 'invalid input', 'resource limit']))
-      .replace('{item}', this.selectRandom(['configuration', 'parameters', 'constraints']))
-      .replace('{operation}', this.selectRandom(['deployment', 'rollback', 'scaling']));
+      .replace('{task}', this.rng.choice(['data processing', 'validation', 'optimization']))
+      .replace('{result}', this.rng.choice(['success', 'partial', 'pending']))
+      .replace('{action}', this.rng.choice(['scan', 'analyze', 'transform']))
+      .replace('{target}', this.rng.choice(['dataset', 'model', 'pipeline']))
+      .replace('{status}', this.rng.choice(['running', 'completed', 'waiting']))
+      .replace('{error}', this.rng.choice(['timeout', 'invalid input', 'resource limit']))
+      .replace('{item}', this.rng.choice(['configuration', 'parameters', 'constraints']))
+      .replace('{operation}', this.rng.choice(['deployment', 'rollback', 'scaling']));
   }
 
   private generateMetadata(): Record<string, unknown> {
     return {
       version: '1.0.0',
-      environment: this.selectRandom(['dev', 'staging', 'prod']),
-      region: this.selectRandom(['us-east-1', 'eu-west-1', 'ap-southeast-1']),
+      environment: this.rng.choice(['dev', 'staging', 'prod']),
+      region: this.rng.choice(['us-east-1', 'eu-west-1', 'ap-southeast-1']),
       sessionId: this.generateId('session'),
-      tags: this.shuffle(['test', 'automated', 'synthetic', 'validation']).slice(0, 2),
+      tags: this.rng.shuffle(['test', 'automated', 'synthetic', 'validation']).slice(0, 2),
     };
   }
 
   private generateMessageMetadata(): Record<string, unknown> {
     return {
-      processingTime: this.randomInt(10, 500),
-      retryCount: this.randomInt(0, 3),
-      confidence: Math.random(),
-      tokens: this.randomInt(10, 200),
+      processingTime: this.rng.nextInt(10, 500),
+      retryCount: this.rng.nextInt(0, 3),
+      confidence: this.rng.next(),
+      tokens: this.rng.nextInt(10, 200),
     };
   }
 
-  private randomInt(min: number, max: number): number {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+  /**
+   * Get the internal random generator for advanced use cases
+   */
+  getRng(): RandomGenerator {
+    return this.rng;
   }
 
-  private selectRandom<T>(array: T[]): T {
-    return array[Math.floor(Math.random() * array.length)];
-  }
-
-  private shuffle<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
+  /**
+   * Reset the factory with a new seed
+   */
+  reset(seed: number): void {
+    this.rng = new SeededRandom(seed);
   }
 }
